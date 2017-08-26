@@ -20,6 +20,8 @@
 #endif
 
 int process_kcache(const char *filename);
+int use_supplies;
+char *supplies_url;
 
 int main(int argc, char* argv[]) {
   char *idevice = NULL;
@@ -27,6 +29,8 @@ int main(int argc, char* argv[]) {
   char *path = NULL;
   char *wd = NULL;
   int is_decrypted = 0;
+  use_supplies = 0;
+  supplies_url = NULL;
 
 #ifdef ONDEVICE
   wd = "/tmp";
@@ -37,7 +41,7 @@ int main(int argc, char* argv[]) {
   idevice = systemInfo.machine;
 
   // I'm too lazy to implement my own sw_vers
-  FILE *fp = popen("/usr/bin/sw_vers", "r");
+  FILE *fp = popen("sw_vers", "r");
   if (fp == NULL) {
     fprintf(stderr, "FAIL: Cant run sw_vers!\n");
     return 1;
@@ -62,12 +66,17 @@ int main(int argc, char* argv[]) {
   }
   pclose(fp);
 
+  if (argc == 2 && (strcmp(argv[2], "wall") == 0)) {
+    use_supplies = 1;
+    fprintf(stderr, "INFO: Will use wall.supplies since ran with `wall` option\n");
+  }
+
 #else
 
   wd = ".";
-  if (argc != 3) {
+  if (argc != 3 && argc != 4) {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "%s idevice-iosvers enc_kcache\n", argv[0]);
+    fprintf(stderr, "%s idevice-iosvers enc_kcache [wall]\n", argv[0]);
     fprintf(stderr, "OR\n");
     fprintf(stderr, "%s decr dec_kcache\n", argv[0]);
     return 1;
@@ -85,6 +94,16 @@ int main(int argc, char* argv[]) {
     idevice = argv[1];
     *_pos = '\0';
     iosvers = _pos + 1;
+  }
+
+  if (argc == 4 && (strcmp(argv[3], "wall") == 0)) {
+    if (!is_decrypted) {
+      use_supplies = 1;
+      fprintf(stderr, "INFO: Will use wall.supplies since ran with `wall` option\n");
+    } else {
+      fprintf(stderr, "FAIL: Cant use wall.supplies with decr\n");
+      return 1;
+    }
   }
 
   path = argv[2];
@@ -124,20 +143,42 @@ int main(int argc, char* argv[]) {
     path = "kernelcache.bin";
   }
 
-	if(process_kcache(path))
+  fprintf(stderr, "lol\n");
+  const char *supplies_ivers = iosvers;
+  if (iosvers[0] != '9') {
+   supplies_ivers = get_iosv(iosvers);
+  }
+
+  supplies_url = calloc(1, 
+    strlen("http://wall.supplies/offsets/-")
+    + strlen(idevice)
+    + strlen(supplies_ivers));
+
+  fprintf(stderr, "lol\n");
+  sprintf(supplies_url, "http://wall.supplies/offsets/%s-%s", idevice, supplies_ivers);
+
+  fprintf(stderr, "lol\n");
+	if(process_kcache(path)) {
+    free(supplies_url);
     return 1;
+  }
 
 
   fprintf(stderr, "INFO: Offsets were written to '%s'. Good Luck!\n", OFFSETSJ_PATH);
   if (!is_decrypted) {
     fprintf(stderr, "INFO: You can compare first offsets to ones at\\\n");
-    fprintf(stderr, "      http://wall.supplies/offsets/%s-%s to avoid bootloops\n", idevice, get_iosv(iosvers));
+    fprintf(stderr, "      '%s' to avoid bootloops\n", supplies_url);
+
+    fprintf(stderr, "INFO: You can also run `shoff wall` to fetch offsets from wall.supplies\\\n");
+    fprintf(stderr, "      if they're wrong\n");
   }
 
   fprintf(stderr, "INFO: Thanks to tihmstar, angelXwind, ianbeer, xninja (no order)\n");
   fprintf(stderr, "INFO: Contains code by badeip and planetbeing, see sources for details\n");
 
   fprintf(stderr, "INFO: Please, send offsets and device info to offsets@stek29.rocks if they work!\n");
+
+  free(supplies_url);
   return 0;
 }
 
@@ -190,22 +231,48 @@ int process_kcache(const char *filename) {
   	return 1;
   }
 
-  long ofs[18]; for(int i = 0; i < sizeof(ofs)/sizeof(ofs[0]); i++) ofs[i] = -1; // too lazy to memzero/memset
-  fprintf(stderr, "INFO: OSSerializer_serialize: 0x%lx\n", (ofs[0]=find_OSSerializer_serialize(obj_file, st)));
-  fprintf(stderr, "INFO: OSSymbol_getMetaClass:  0x%lx\n", (ofs[1]=find_OSSymbol_getMetaClass(obj_file, st)));
-  fprintf(stderr, "INFO: calend_gettime:         0x%lx\n", (ofs[2]=find_calend_gettime(obj_file)));
-  fprintf(stderr, "INFO: bufattr_cpx:            0x%lx\n", (ofs[3]=find_bufattr_cpx(obj_file, st)));
-  fprintf(stderr, "INFO: clock_ops:              0x%lx\n", (ofs[4]=find_clock_ops(obj_file, st)));
-  fprintf(stderr, "INFO: copyin:                 0x%lx\n", (ofs[5]=find_copyin(obj_file, st)));
-  fprintf(stderr, "INFO: bx_lr:                  0x%lx\n", (ofs[6]=find_bx_lr(obj_file, st)));
-  fprintf(stderr, "INFO: write_gadget:           0x%lx\n", (ofs[7]=find_write_gadget(obj_file)));
-  fprintf(stderr, "INFO: vm_kernel_addrperm:     0x%lx\n", (ofs[8]=find_vm_kernel_addrperm(obj_file, st)));
-  fprintf(stderr, "INFO: kernel_pmap:            0x%lx\n", (ofs[9]=find_kernel_pmap(obj_file, st)));
-  fprintf(stderr, "INFO: invalidate_tlb:         0x%lx\n", (ofs[10]=find_invalidate_tlb(obj_file)));
-  fprintf(stderr, "INFO: allproc:                0x%lx\n", (ofs[11]=allproc(obj_file, st, &tsect)));
-  fprintf(stderr, "INFO: proc_ucred:             0x%lx\n", (ofs[12]=proc_ucred(obj_file, st)));
+  long ofs[18];
+  memset(ofs, 0, sizeof(ofs));
 
-  struct clock_ops_offset *unt = untether_clock_ops(obj_file, st);
+  if (!use_supplies) {
+    fprintf(stderr, "INFO: OSSerializer_serialize: 0x%lx\n", (ofs[0]=find_OSSerializer_serialize(obj_file, st)));
+    fprintf(stderr, "INFO: OSSymbol_getMetaClass:  0x%lx\n", (ofs[1]=find_OSSymbol_getMetaClass(obj_file, st)));
+    fprintf(stderr, "INFO: calend_gettime:         0x%lx\n", (ofs[2]=find_calend_gettime(obj_file)));
+    fprintf(stderr, "INFO: bufattr_cpx:            0x%lx\n", (ofs[3]=find_bufattr_cpx(obj_file, st)));
+    fprintf(stderr, "INFO: clock_ops:              0x%lx\n", (ofs[4]=find_clock_ops(obj_file, st)));
+    fprintf(stderr, "INFO: copyin:                 0x%lx\n", (ofs[5]=find_copyin(obj_file, st)));
+    fprintf(stderr, "INFO: bx_lr:                  0x%lx\n", (ofs[6]=find_bx_lr(obj_file, st)));
+    fprintf(stderr, "INFO: write_gadget:           0x%lx\n", (ofs[7]=find_write_gadget(obj_file)));
+    fprintf(stderr, "INFO: vm_kernel_addrperm:     0x%lx\n", (ofs[8]=find_vm_kernel_addrperm(obj_file, st)));
+    fprintf(stderr, "INFO: kernel_pmap:            0x%lx\n", (ofs[9]=find_kernel_pmap(obj_file, st)));
+    fprintf(stderr, "INFO: invalidate_tlb:         0x%lx\n", (ofs[10]=find_invalidate_tlb(obj_file)));
+    fprintf(stderr, "INFO: allproc:                0x%lx\n", (ofs[11]=allproc(obj_file, st, &tsect)));
+    fprintf(stderr, "INFO: proc_ucred:             0x%lx\n", (ofs[12]=proc_ucred(obj_file, st)));
+  } else {
+    fprintf(stderr, "INFO: Crawling '%s'...\n", supplies_url);
+    char *command = calloc(1, strlen(supplies_url) + strlen("curl ''"));
+    sprintf(command, "curl '%s'", supplies_url);
+    FILE *curlfp = popen(command, "r");
+    if (curlfp == NULL) {
+      fprintf(stderr, "FAIL: Cant run %s\n", command);
+      return 1;
+    }
+
+    char buf[128] = { 0 };
+    int i = 0;
+    while ((fgets(buf, sizeof(buf)-1, curlfp) != NULL) && i <= 12) {
+      if (sscanf(buf, " 0x%lx", &ofs[i]) != 1) {
+        fprintf(stderr, "FAIL: Cant parse '%s'\n", buf);
+        return 1;
+      }
+      i++;
+    }
+
+    free(command);
+    pclose(curlfp);
+  }
+
+  struct clock_ops_offset *unt = untether_clock_ops(obj_file, st, ofs[4]);
 
   if (unt != NULL) {
     fprintf(stderr, "INFO: c_config:               0x%lx\n", (ofs[13]=unt->c_config));

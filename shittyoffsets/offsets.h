@@ -32,5 +32,5 @@ struct clock_ops_offset {
   */
 };
 
-struct clock_ops_offset *untether_clock_ops(FILE *f, struct symtab_command *st);
+struct clock_ops_offset *untether_clock_ops(FILE *f, struct symtab_command *st, long clock_ops);
 

@@ -434,17 +434,12 @@ long proc_ucred(FILE *f, struct symtab_command *st) {
 	return offset;
 };
 
-struct clock_ops_offset *untether_clock_ops(FILE *f, struct symtab_command *st) {
+struct clock_ops_offset *untether_clock_ops(FILE *f, struct symtab_command *st, long clock_ops) {
 	static struct clock_ops_offset *offset = NULL;
 	static int ran = 0;
 
 	if (!ran) {
-		long clock_ops = find_clock_ops(f, st);
-		
-		if (clock_ops >= 0) {
-			offset = load_bytes(f, clock_ops, sizeof(struct clock_ops_offset));
-		}
-
+		offset = load_bytes(f, clock_ops, sizeof(struct clock_ops_offset));
 		ran = 1;
 	}
 
