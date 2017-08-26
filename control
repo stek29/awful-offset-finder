@@ -1,0 +1,10 @@
+Package: rocks.stek29.shoff
+Name: SHOFF
+Depends: OpenSSL
+Version: 1.0
+Architecture: iphoneos-arm
+Description: Ondevice offset finder for UntetheredHomeDepot, see github.com/stek29/awful-offset-finder
+Maintainer: Viktor Oreshkin (stek29) <cy@stek29.rocks>
+Author: Viktor Oreshkin (stek29) <cy@stek29.rocks>
+Section: Tools
+

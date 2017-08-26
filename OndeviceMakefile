@@ -1,0 +1,26 @@
+PACKAGE_VERSION = $(THEOS_PACKAGE_BASE_VERSION)
+
+include $(THEOS)/makefiles/common.mk
+
+TOOL_NAME = shoff
+shoff_FILES =\
+		main.c\
+		shittyfiles/filetools.c\
+		shittyoffsets/offsets.c\
+		mymacho/macho.c\
+		patchfinder/patchfinder.c\
+		kcache/crypto.c\
+		kcache/kcache.c\
+		kcache/lzss.c\
+		kcache/util.c\
+		keys/keys.c 
+
+shoff_LDFLAGS=-l crypto
+
+shoff_ARCHS=armv7
+
+shoff_CFLAGS=-Ishittyfiles -Ishittyoffsets -Imymacho -Ipatchfinder -Ikcache -Ikeys -Wno-error -DONDEVICE
+
+include $(THEOS_MAKE_PATH)/tool.mk
+
+
