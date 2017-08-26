@@ -66,7 +66,7 @@ int main(int argc, char* argv[]) {
   }
   pclose(fp);
 
-  if (argc == 2 && (strcmp(argv[2], "wall") == 0)) {
+  if (argc == 2 && (strcmp(argv[1], "wall") == 0)) {
     use_supplies = 1;
     fprintf(stderr, "INFO: Will use wall.supplies since ran with `wall` option\n");
   }
