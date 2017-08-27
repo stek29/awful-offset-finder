@@ -282,6 +282,11 @@ int process_kcache(const char *filename) {
     fprintf(stderr, "INFO: c_getattr:              0x%lx\n", (ofs[17]=unt->c_getattr));
   }
 
+  if (ofs[14] != 0 || ofs[15] != 0) {
+    fprintf(stderr, "WARN: c_intit/c_gettime are not 0! Likely clock_ops offset is wrong!\n");
+    fprintf(stderr, "      Please try running with `wall` option!\n");
+  }
+
   fprintf(stderr, "INFO: Creating offsets.json...\n");
 
   FILE *offsetsj = fopen(OFFSETSJ_PATH, "w");
