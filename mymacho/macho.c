@@ -39,7 +39,6 @@ int find_text_section(FILE *obj_file, struct segment_command *ts, struct section
 
   for (uint32_t i = 0; i < ts->nsects; i++) {
     load_bytes_to_buf(obj_file, offset, sizeof(struct section), sect);
-    printf("%s\n", sect->sectname);
     if (strcmp(sect->sectname, sectname) == 0) {
       return 0;
     } else {

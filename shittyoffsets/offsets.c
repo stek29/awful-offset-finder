@@ -361,9 +361,10 @@ long allproc(FILE *f, struct symtab_command *st, struct section *tsect) {
 
 			allproc_struct_offs = insn_ldr_imm_imm(p) << 2;
 
+			/* Nvm, it's ok
 			if (allproc_struct_offs != 0xc) 
 				printf("WTF ldr_imm is 0x%x and not 0xc!!\n", allproc_struct_offs);
-
+			*/
 			while(!(insn_is_add_reg(p) && (insn_add_reg_rd(p) == 0) && (insn_add_reg_rm(p) == 0xF)))
 				readbyte;
 

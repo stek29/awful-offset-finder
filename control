@@ -1,7 +1,8 @@
 Package: rocks.stek29.shoff
 Name: SHOFF
-Depends: OpenSSL, curl
-Version: 1.1.2
+Depends: OpenSSL, curl, firmware (>= 9.1), firmware (<= 9.3.4)
+Conflicts: cy+cpu.arm64
+Version: 1.1.3
 Architecture: iphoneos-arm
 Description: Ondevice offset finder for UntetheredHomeDepot, see github.com/stek29/awful-offset-finder
 Maintainer: Viktor Oreshkin (stek29) <cy@stek29.rocks>
